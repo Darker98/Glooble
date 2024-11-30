@@ -17,7 +17,3 @@ for row in chunks.itertuples(index=False):
         tokenized = tokenize_text(column)
         for token in tokenized:
             lexicon.add_word(token)
-
-lexicon.write_to_file('lexicon.bin')
-lexicon.read_from_file('lexicon.bin')
-print(lexicon.get_lexicon())
