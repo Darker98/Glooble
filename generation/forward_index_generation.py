@@ -20,7 +20,7 @@ def sha_256(data):
     return checksum
 
 # Read dataset in chunks
-chunks = pd.read_csv('medium_articles.csv', nrows = 100)
+chunks = pd.read_csv('articles_sample.csv', nrows = 100)
 
 # Initialize lexicon
 lexicon = Lexicon()
@@ -35,7 +35,7 @@ columns_to_select = [0, 1, 3, 5]
 for row in chunks.itertuples(index=False):
     wordIDs = set()
     selected_columns = [row[i] for i in columns_to_select]
-    url = row[3]
+    url = row[2]
 
     # Add each token to forward index
     for column_num, column in enumerate(selected_columns):

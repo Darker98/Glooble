@@ -2,9 +2,10 @@ import pandas as pd
 import nltk
 from tokenize_text import tokenize_text
 from Lexicon import Lexicon
+from sorting import sort_and_save_lexicon
 
 # Read dataset in chunks
-chunks = pd.read_csv('medium_articles.csv', nrows = 100)
+chunks = pd.read_csv('articles_sample.csv', nrows = 100)
 
 lexicon = Lexicon()
 
@@ -19,5 +20,4 @@ for row in chunks.itertuples(index=False):
             lexicon.add_word(token)
 
 lexicon.write_to_file('lexicon.bin')
-lexicon.read_from_file('lexicon.bin')
-print(lexicon.get_lexicon())
+sort_and_save_lexicon('lexicon.bin', 'lexicon.bin')
