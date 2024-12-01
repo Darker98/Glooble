@@ -18,10 +18,3 @@ def sort_and_save_lexicon(input_filename, output_filename):
 
     # Write the sorted lexicon back to a new file
     lexicon.write_to_file(output_filename)
-
-    print(f"Lexicon sorted and saved to {output_filename}")
-
-if __name__ == "__main__":
-    input_filename = 'lexicon.bin'  # Input lexicon file
-    output_filename = 'sorted_lexicon.bin'  # Output sorted lexicon file
-    sort_and_save_lexicon(input_filename, output_filename)

@@ -1,3 +1,5 @@
+import struct
+
 class InvertedIndex:
     def __init__(self):
         self.word_to_docIDs = {}  # Dictionary to store wordID -> list of docIDs mapping
