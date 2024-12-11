@@ -1,16 +1,24 @@
-import contractions
-import nltk
-from nltk.stem import PorterStemmer
+import spacy
 from nltk.tokenize import word_tokenize
 import re
 import unicodedata
+import inflect
 
-# Function to remove non-ascii characters
+
+# Load spaCy model for lemmatization
+nlp = spacy.load("en_core_web_sm")
+
+# Initialize inflect engine for number-to-word conversion
+p = inflect.engine()
+
+
+# Function to remove non-ASCII characters
 def clean_text(word):
     return ''.join(
         c for c in word
         if ord(c) < 128
     )
+
 
 # Function to remove accents
 def remove_accents(input_str):
@@ -26,45 +34,53 @@ def remove_accents(input_str):
     # Filter out characters that are diacritical marks (non-spacing marks)
     return ''.join([c for c in nfkd_form if not unicodedata.combining(c)])
 
+
 def tokenize_text(text):
-    stemmer = PorterStemmer()
     tokens = []
+    custom_stopwords = {"and", "or", "the", "a", "an", "in", "of", "on", "at", "for", "is", "was", "it", "with", "as",
+                        "by", "to", "from", "that", "this", "these", "those", "been", "be", "has", "have", "will",
+                        "can", "could", "would", "should", "do", "did", "done", "i", "you", "we", "he", "she", "they",
+                        "them", "us", "about"}
 
-    # Step 1: Expand contractions
-    expanded_text = contractions.fix(text)
+    # Ensure input is a string; convert non-string to empty string
+    if not isinstance(text, str):
+        text = ""
 
-    # Step 2: Tokenize the text
-    words = word_tokenize(expanded_text)
+    # Step 1: Tokenize the text
+    words = word_tokenize(text)
 
     for word in words:
-        # Step 3: Split hyphenated words
-        if '-' in word:
-            parts = word.split('-')
-            tokens.extend(parts)  # Add split parts to tokens
+        # Step 2: Convert numbers to words and remove numbers
+        if word.isdigit():
+            number_word = p.number_to_words(word)
+            tokens.append(number_word)
         else:
-            if word.isdigit() or word.isdecimal():
-                continue
-            tokens.append(word)
+            # Step 3: Split hyphenated words
+            if '-' in word:
+                parts = word.split('-')
+                tokens.extend(parts)  # Add split parts to tokens
+            else:
+                if word.isdecimal:
+                    continue
+                tokens.append(word)
 
-    # Step 4: Store contractions by removing apostrophes
-    additional_tokens = []
-    for token in word_tokenize(text):
-        if "'" in token:
-            additional_tokens.append(re.sub(r"'", "", token))  # Remove apostrophe
-    tokens.extend(additional_tokens)
-
-    # Step 5: Remove punctuation and handle capitalization
+    # Step 4: Remove punctuation and handle capitalization
     cleaned_tokens = []
-    for i, token in enumerate(tokens):
+    for token in tokens:
         # Remove punctuation
         token = re.sub(r'[^\w\s]', '', token)
 
         cleaned_tokens.append(token)
 
-    # Step 6: Stem the tokens
-    stemmed_tokens = [stemmer.stem(token) for token in cleaned_tokens if token]
+    # Step 5: Remove non-ASCII and accent characters
+    cleaned_tokens = [clean_text(remove_accents(token)) for token in cleaned_tokens if token]
 
-    # Step 7: Remove non-ASCII and accent characters
-    stemmed_tokens = [clean_text(remove_accents(token)) for token in stemmed_tokens]
+    # Step 6: Lemmatize tokens using spaCy
+    lemmatized_tokens = []
+    doc = nlp(' '.join(cleaned_tokens))
+    for token in doc:
+        # Step 7: Remove stopwords
+        if token not in custom_stopwords:
+            lemmatized_tokens.append(token.lemma_)
 
-    return stemmed_tokens
+    return lemmatized_tokens
