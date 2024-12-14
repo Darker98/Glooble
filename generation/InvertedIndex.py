@@ -10,11 +10,16 @@ class InvertedIndex:
 
         :param forward_index: Dictionary mapping docID -> list of wordIDs
         """
+        docNo = 1
         for docID, wordIDs in forward_index.items():
             for wordID in wordIDs:
                 if wordID not in self.word_to_docIDs:
                     self.word_to_docIDs[wordID] = []
                 self.word_to_docIDs[wordID].append(docID)
+
+            if docNo % 50 == 0:
+                print(docNo)
+            docNo += 1
 
     def get_docIDs(self, wordID):
         """
@@ -42,7 +47,7 @@ class InvertedIndex:
         with open(filename, 'wb') as file:
             for wordID, docIDs in self.word_to_docIDs.items():
                 # Pack the wordID (4 bytes) and number of docIDs (2 bytes)
-                data = struct.pack("<IH", wordID, len(docIDs))  # I = 4-byte unsigned int, H = 2-byte unsigned short
+                data = struct.pack("<II", wordID, len(docIDs))  # I = 4-byte unsigned int
 
                 # Pack all docIDs (8 bytes each)
                 docID_data = struct.pack(f"<{len(docIDs)}Q", *docIDs)  # Q = 8-byte unsigned int

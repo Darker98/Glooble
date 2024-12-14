@@ -25,19 +25,11 @@ class BarrelManager:
 
         # Write each barrel to a file
         for i, barrel in enumerate(barrels):
-            barrel_filename = f"{self.output_dir}/barrel_{i}.bin"
+            barrel_filename = f"{self.output_dir}/barrels/barrel_{i}.bin"
             self.pointers[f"barrel_{i}"] = list(barrel.keys())  # Keep track of the wordIDs in this barrel
             with open(barrel_filename, 'wb') as file:
                 for wordID, docIDs in barrel.items():
                     # Serialize and write wordID and its docIDs
-                    data = struct.pack("<IH", wordID, len(docIDs))  # I = unsigned int, H = unsigned short
+                    data = struct.pack("<II", wordID, len(docIDs))  # I = unsigned int
                     docID_data = struct.pack(f"<{len(docIDs)}Q", *docIDs)  # Q = unsigned long long
                     file.write(data + docID_data)
-
-    def save_pointers(self, filename="pointers.json"):
-        """
-        Save the pointers list to a file.
-        :param filename: File to save the pointers list.
-        """
-        with open(filename, 'w') as file:
-            json.dump(self.pointers, file, indent=4)
