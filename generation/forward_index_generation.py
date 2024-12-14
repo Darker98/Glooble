@@ -6,12 +6,6 @@ from hashlib import sha256
 
 
 def sha_256(data):
-    """
-    Generate an 8-byte checksum from SHA-256 as an integer.
-
-    :param data: Input data in bytes
-    :return: Integer representation of the first 8 bytes of the SHA-256 hash
-    """
     # Compute SHA-256 hash
     hash_value = sha256(data).digest()
 
@@ -22,11 +16,11 @@ def sha_256(data):
 
 
 # Read dataset in chunks
-chunks = pd.read_csv('medium_articles.csv', chunksize=1000)
+chunks = pd.read_csv('files/medium_articles.csv', chunksize=1000)
 
 # Initialize lexicon
 lexicon = Lexicon()
-lexicon.read_from_file('lexicon.bin')
+lexicon.read_from_file('files/lexicon.bin')
 
 # Initialize forward index
 fi = ForwardIndex()
@@ -67,5 +61,5 @@ except Exception as e:
     print(rowNo)
 
 # Test forward index
-fi.write_to_file('forward_index.bin')
-fi.read_from_file('forward_index.bin')
+fi.write_to_file('files/forward_index.bin')
+fi.read_from_file('files/forward_index.bin')

@@ -165,4 +165,4 @@ cython_debug/
 *.pyc
 *.pyc
 generation/__pycache__/tokenize_text.cpython-311.pyc
-generation/medium_articles.csv
+generation/files/medium_articles.csv

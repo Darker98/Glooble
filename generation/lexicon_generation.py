@@ -6,7 +6,7 @@ from sorting import sort_and_save_lexicon
 
 
 # Read dataset in chunks
-chunks = pd.read_csv('medium_articles.csv', chunksize=1000)
+chunks = pd.read_csv('files/medium_articles.csv', chunksize=1000)
 
 lexicon = Lexicon()
 
@@ -30,7 +30,7 @@ except:
     print(rowNo)
 
 lexicon.write_to_file('lexicon.bin')
-sort_and_save_lexicon('lexicon.bin', 'lexicon.bin')
+sort_and_save_lexicon('files/lexicon.bin', 'files/lexicon.bin')
 
 lexicon = Lexicon()
 lexicon.read_from_file('lexicon.bin')
