@@ -166,3 +166,7 @@ cython_debug/
 *.pyc
 generation/__pycache__/tokenize_text.cpython-311.pyc
 generation/files/medium_articles.csv
+
+# Visual studio
+/.vs
+.vs/*
