@@ -25,6 +25,7 @@ class Lexicon:
         with open(filename, 'wb') as file:
             for word, word_id in self.word_to_id.items():
                 word_length = len(word)
+
                 data = struct.pack(f"<B{word_length}sI", word_length, word.encode('utf-8', errors='remove'), word_id)
                 file.write(data)
 
