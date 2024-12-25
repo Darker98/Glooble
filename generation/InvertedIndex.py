@@ -73,7 +73,7 @@ class BarrelsManager:
             barrel_index = wordID % self.num_barrels  # Example: hash-based assignment
             barrels[barrel_index][wordID] = docIDs
 
-        # Write each barrel to a file
+        # Write each barrel to a file and store offsets
         for i, barrel in enumerate(barrels):
             barrel_filename = f"{self.output_dir}/barrel_{i}.bin"
             self.offsets[i] = {}
@@ -90,8 +90,9 @@ class BarrelsManager:
 
                     offset += len(data) + len(docID_data)
 
-            # Save metadata for this bucket to a file
-            metadata_file = f"{self.output_dir}/offsets.bin"
-            with open(metadata_file, 'wb') as meta_file:
-                for word_id, word_offset in self.offsets[i].items():
+        # Write all offsets to the metadata file (outside the loop)
+        metadata_file = f"{self.output_dir}/offsets.bin"
+        with open(metadata_file, 'wb') as meta_file:
+            for barrel_index, offsets in self.offsets.items():
+                for word_id, word_offset in offsets.items():
                     meta_file.write(struct.pack("<IQ", word_id, word_offset))  # Serialize docID and offset
