@@ -1,29 +1,21 @@
 import React, { useState } from 'react';
 import { SearchBar } from './components/SearchBar';
 import { SearchResults } from './components/SearchResults';
+import { Pagination } from './components/Pagination';
 import { Search, Sparkles } from 'lucide-react';
 
-// Keep the mock results as fallback
-const mockResults = [
-  {
-    id: '1',
-    title: 'Understanding React Hooks',
-    description: 'A comprehensive guide to React Hooks and their usage in modern web development.',
-    url: 'https://example.com/article1',
-  },
-  {
-    id: '2',
-    title: 'The Future of Web Development',
-    description: 'Exploring upcoming trends and technologies in web development for 2024 and beyond.',
-    url: 'https://example.com/article2',
-  },
-];
+const ITEMS_PER_PAGE = 10;
 
 export default function App() {
-  const [results, setResults] = useState<string[]>([]);
+  const [results, setResults] = useState<string[]>([]); // Array of URLs
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(results.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedResults = results.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const handleSearch = async (query: string) => {
-    // Validate that query is not empty or just whitespace
     if (!query || query.trim() === '') {
       console.log('Please enter a search query');
       return;
@@ -35,7 +27,7 @@ export default function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ query: query }),
+        body: JSON.stringify({ query: query.trim() }),
       });
 
       if (!response.ok) {
@@ -43,7 +35,8 @@ export default function App() {
       }
 
       const data = await response.json();
-      setResults(data.urls || []);
+      setResults(data.urls || []); // Update with URLs from response
+      setCurrentPage(1); // Reset to first page on new search
     } catch (error) {
       console.error('Error:', error);
       setResults([]); 
@@ -74,12 +67,24 @@ export default function App() {
               Glooble
             </h1>
           </div>
+          <div className="flex items-center space-x-2 text-gray-400">
+            <Sparkles size={16} className="text-purple-400" />
+            <p className="text-lg">Discover knowledge through the digital cosmos</p>
+            <Sparkles size={16} className="text-purple-400" />
+          </div>
         </div>
 
         {/* Search Interface */}
         <div className="flex flex-col items-center space-y-8 max-w-5xl mx-auto">
           <SearchBar onSearch={handleSearch} onUpload={handleUpload} />
-          <SearchResults results={results} />
+          <SearchResults results={paginatedResults} />
+          {results.length > ITEMS_PER_PAGE && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </div>
       </div>
     </div>
