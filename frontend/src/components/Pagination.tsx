@@ -8,8 +8,17 @@ interface PaginationProps {
 }
 
 export function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
+  // Calculate the range of pages to display
+  const pageRange = 10; // Number of surrounding pages to show
+  const startPage = Math.max(1, currentPage - Math.floor(pageRange / 2));
+  const endPage = Math.min(totalPages, startPage + pageRange - 1);
+
+  // Adjust startPage if endPage reaches totalPages and there's space for more pages
+  const adjustedStartPage = Math.max(1, endPage - pageRange + 1);
+
   return (
     <div className="flex items-center justify-center space-x-2 mt-8">
+      {/* Prev Button */}
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
@@ -17,9 +26,27 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
       >
         <ChevronLeft size={20} className="text-purple-400" />
       </button>
-      
+
+      {/* Page Numbers */}
       <div className="flex items-center space-x-2">
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+        {adjustedStartPage > 1 && (
+          <>
+            <button
+              onClick={() => onPageChange(1)}
+              className={`w-8 h-8 rounded-lg transition-colors duration-300 ${
+                currentPage === 1
+                  ? 'bg-purple-500/20 text-purple-400'
+                  : 'bg-gray-900/80 text-gray-400 hover:bg-gray-800/80'
+              }`}
+            >
+              1
+            </button>
+            {adjustedStartPage > 2 && (
+              <span className="text-gray-500">...</span>
+            )}
+          </>
+        )}
+        {Array.from({ length: endPage - adjustedStartPage + 1 }, (_, i) => adjustedStartPage + i).map((page) => (
           <button
             key={page}
             onClick={() => onPageChange(page)}
@@ -32,8 +59,26 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
             {page}
           </button>
         ))}
+        {endPage < totalPages && (
+          <>
+            {endPage < totalPages - 1 && (
+              <span className="text-gray-500">...</span>
+            )}
+            <button
+              onClick={() => onPageChange(totalPages)}
+              className={`w-8 h-8 rounded-lg transition-colors duration-300 ${
+                currentPage === totalPages
+                  ? 'bg-purple-500/20 text-purple-400'
+                  : 'bg-gray-900/80 text-gray-400 hover:bg-gray-800/80'
+              }`}
+            >
+              {totalPages}
+            </button>
+          </>
+        )}
       </div>
 
+      {/* Next Button */}
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
@@ -43,4 +88,4 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
       </button>
     </div>
   );
-} 
+}
