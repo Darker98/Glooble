@@ -33,6 +33,7 @@ try:
                 title = sanitize_value(row[0])  # Assuming the title is in the 1st column
                 tags = sanitize_value(row[5])  # Assuming the tags are in the 6th column
                 authors = sanitize_value(row[3])  # Assuming the authors are in the 4th column
+                text = sanitize_value(row[1])[:100]
 
                 # Calculate docID
                 docID = sha_256(url)
@@ -78,6 +79,15 @@ try:
                     main_file.write(author_length.to_bytes(1, byteorder='big'))  # 1 byte for author length
                     main_file.write(author_encoded)  # Author bytes
                     current_offset += 1 + author_length  # Update offset
+
+                # Write the first 100 characters of the text
+                text = sanitize_value(row[1])[:100]  # Take the first 100 characters of the text
+                text_encoded = text.encode('utf-8')
+                text_length = len(text_encoded)
+
+                main_file.write(text_length.to_bytes(2, byteorder='big'))  # 2 bytes for text length
+                main_file.write(text_encoded)  # Text bytes
+                current_offset += 2 + text_length  # Update offset (2 bytes for length + actual text bytes)
 
                 # Write docID at the end of this entry in the main file
                 main_file.write(docID.to_bytes(8, byteorder='big'))  # 8 bytes for docID

@@ -58,11 +58,16 @@ class URLMapper:
                     author = file.read(author_length).decode('utf-8')
                     authors.append(author)
 
+                # Read text
+                text_length = int.from_bytes(file.read(2), byteorder='big')
+                text = file.read(text_length).decode('utf-8')
+
                 return {
                     "url": url,
                     "title": title,
                     "tags": tags,
                     "authors": authors,
+                    "text": text
                 }
         except Exception as e:
             print(f"Error fetching details for docID {docID}: {e}")
