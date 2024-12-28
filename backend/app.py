@@ -22,7 +22,7 @@ num_barrels = barrel_reader.num_barrels
 # Initialize data
 lexicon.read_from_file('files/lexicon.bin')
 barrel_reader.load_offsets('barrels/inverted_index/offsets.bin')
-url_mapper.read_from_file('files/url_mapper.bin')
+url_mapper.read_offsets_from_file('files/offsets.bin')
 
 
 def sha_256(data):
@@ -40,18 +40,18 @@ def process_word(word, result):
     wordID = lexicon.get_word_id(word)
     docIDs = barrel_reader.read_docIDs(wordID)
 
-    urls = set()
+    unique_doc_IDs = set()
     for docID in docIDs:
-        url = url_mapper.get_url(docID)
-        if url is not None:
-            urls.add(url)
+        if docID is not None:
+            unique_doc_IDs.add(docID)
 
-    if urls is not None:
-        result.append(set(urls))  # Append as a set
+    if unique_doc_IDs is not None:
+        result.append(set(unique_doc_IDs))  # Append as a set
 
 
+# Fetch details of each unique docID
 def handle_query(query):
-    """Handles the incoming query and retrieves common docIDs."""
+    """Handles the incoming query and retrieves common docIDs and their details."""
     words = preprocessing.tokenize_text(query)
     threads = []
     result = []
@@ -64,10 +64,20 @@ def handle_query(query):
     for thread in threads:
         thread.join()
 
+    # If we have common docIDs, retrieve their details
     if result:
-        common_urls = set.intersection(*result)
-        return list(common_urls)  # Convert set to list for JSON serialization
-    return []
+        common_doc_ids = set.intersection(*result)
+
+        # Fetch the details (URL, title, tags, authors) for each docID
+        doc_details = []
+        for docID in common_doc_ids:
+            details = url_mapper.get_details_by_docID(docID, 'files/url_mapper.bin')
+            if details:
+                doc_details.append(details)
+
+        return doc_details  # Return list of documents' details as JSON-serializable list
+
+    return []  # Return an empty list if no common docIDs are found
 
 
 def add_article(data):
@@ -110,11 +120,15 @@ def add_article(data):
             with open('barrels/inverted_index/offsets.bin', 'ab') as meta_file:
                 meta_file.write(struct.pack("<IQ", wordID, barrel_reader.get_wordID_offset(wordID)))
 
+        # Update barrel and offsets
         else:
             barrel_reader.update_barrel_entry(wordID, docID)
 
+    # Make entry in url mapper
+    url_mapper.add_entry(docID, url)
 
-# Define an endpoint for processing queries
+
+# Return query response
 @app.route('/query', methods=['POST'])
 def query():
     """Endpoint to handle search queries."""
@@ -125,8 +139,11 @@ def query():
         return jsonify({"error": "Query cannot be empty"}), 400
 
     # Process the query and get results
-    common_urls = handle_query(query_text)
-    return jsonify({"urls": common_urls})
+    doc_details = handle_query(query_text)
+    if doc_details:
+        return jsonify({"results": doc_details})
+    else:
+        return jsonify({"error": "No results found"}), 404
 
 
 # Define an endpoint for adding articles
