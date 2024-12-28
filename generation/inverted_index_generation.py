@@ -14,4 +14,4 @@ inverted_index = InvertedIndex()
 # Build the inverted index
 inverted_index.build_from_forward_index(forward_index)
 
-inverted_index.write_to_file('files/inverted_index.bin')
+inverted_index.write_to_file('files/inverted_index.bin', 'files/max_frequencies.bin')

@@ -61,10 +61,10 @@ class ForwardIndex:
 
 
 class BarrelsManager:
-    def __init__(self, num_barrels=22, output_directory="barrels/forward_index"):
+    def __init__(self, num_barrels=38, output_directory="barrels/forward_index"):
         self.num_barrels = num_barrels
         self.output_directory = output_directory
-        self.offsets = {}  # Tracks docID -> (bucket_index, offset)
+        self.offsets = {}  # Tracks docID -> offset
 
     def make_barrels(self, index):
         os.makedirs(self.output_directory, exist_ok=True)  # Ensure output directory exists
@@ -93,37 +93,39 @@ class BarrelsManager:
                     file.write(header + word_entries + max_freq_data)
 
                     # Record offset in metadata
-                    self.offsets[docID] = (i, offset)  # Store bucket_index and offset
+                    self.offsets[docID] = offset  # Store only the offset
 
                     # Update offset
                     offset += len(header) + len(word_entries) + len(max_freq_data)
 
         # Write all offsets to a single metadata file
-        metadata_file = f"{self.output_directory}/metadata.bin"
+        metadata_file = f"{self.output_directory}/offsets.bin"
         with open(metadata_file, 'wb') as meta_file:
-            for docID, (bucket_index, offset) in self.offsets.items():
-                meta_file.write(struct.pack("<QIH", docID, bucket_index, offset))
+            for docID, offset in self.offsets.items():
+                # Pack docID (8 bytes) and offset (4 bytes)
+                meta_file.write(struct.pack("<QI", docID, offset))
 
     def load_metadata(self, metadata_file):
         self.offsets = {}
         with open(metadata_file, 'rb') as meta_file:
             while True:
-                meta_data = meta_file.read(14)  # 8 bytes docID + 4 bytes bucket_index + 2 bytes offset
+                meta_data = meta_file.read(12)  # 8 bytes docID + 4 bytes offset
                 if not meta_data:
                     break
-                docID, bucket_index, offset = struct.unpack("<QIH", meta_data)
-                self.offsets[docID] = (bucket_index, offset)
+                docID, offset = struct.unpack("<QI", meta_data)
+                self.offsets[docID] = offset
 
     def get_document(self, docID):
         if docID not in self.offsets:
             raise KeyError("Document not found.")
 
-        bucket_index, offset = self.offsets[docID]
+        # Determine the bucket dynamically based on docID
+        bucket_index = docID % self.num_barrels
         bucket_file = f"{self.output_directory}/bucket_{bucket_index}.bin"
 
         # Read the document data
         with open(bucket_file, 'rb') as file:
-            file.seek(offset)
+            file.seek(self.offsets[docID])
             header = file.read(10)  # 8 bytes docID + 2 bytes word_count
             _, word_count = struct.unpack("<QH", header)
 

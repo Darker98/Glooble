@@ -8,6 +8,7 @@ from Lexicon import Lexicon
 from inverted_index import BarrelReader
 from URLMapper import URLMapper
 from hashlib import sha256
+from max_frequencies_reader import max_frequency_reader
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -23,6 +24,11 @@ num_barrels = barrel_reader.num_barrels
 lexicon.read_from_file('files/lexicon.bin')
 barrel_reader.load_offsets('barrels/inverted_index/offsets.bin')
 url_mapper.read_offsets_from_file('files/offsets.bin')
+num_documents, max_frequencies = max_frequency_reader('files/max_frequencies.bin')
+
+# Global variable to store sorted_docIDs for the latest query
+global_sorted_docIDs = []
+previous_query = ""
 
 
 def sha_256(data):
@@ -36,22 +42,26 @@ def sha_256(data):
 
 
 def process_word(word, result):
-    """Retrieve docIDs for a single word and append as a set."""
+    """Retrieve docIDs for a single word and append as a set of docIDs with their scores."""
     wordID = lexicon.get_word_id(word)
-    docIDs = barrel_reader.read_docIDs(wordID)
+    docIDs_and_scores = barrel_reader.read_docIDs_and_scores(wordID, num_documents, max_frequencies)
 
-    unique_doc_IDs = set()
-    for docID in docIDs:
+    docID_scores = {}  # Dictionary to store cumulative scores for each docID
+
+    for docID, score in docIDs_and_scores:
         if docID is not None:
-            unique_doc_IDs.add(docID)
+            if docID not in docID_scores:
+                docID_scores[docID] = score
+            else:
+                docID_scores[docID] += score  # Add the score if docID is repeated
 
-    if unique_doc_IDs is not None:
-        result.append(set(unique_doc_IDs))  # Append as a set
+    result.append(docID_scores)  # Append the dictionary of docID => total_score
 
 
 # Fetch details of each unique docID
 def handle_query(query):
     """Handles the incoming query and retrieves common docIDs and their details."""
+    global global_sorted_docIDs  # Access global variable
     words = preprocessing.tokenize_text(query)
     threads = []
     result = []
@@ -66,16 +76,24 @@ def handle_query(query):
 
     # If we have common docIDs, retrieve their details
     if result:
-        common_doc_ids = set.intersection(*result)
+        # Find common docIDs across all sets
+        common_doc_ids = set.intersection(*[set(docID_scores.keys()) for docID_scores in result])
 
-        # Fetch the details (URL, title, tags, authors) for each docID
-        doc_details = []
-        for docID in common_doc_ids:
-            details = url_mapper.get_details_by_docID(docID, 'files/url_mapper.bin')
-            if details:
-                doc_details.append(details)
+        # Accumulate scores for common docIDs
+        docID_final_scores = {}
 
-        return doc_details  # Return list of documents' details as JSON-serializable list
+        for docID_scores in result:
+            for docID, score in docID_scores.items():
+                if docID in common_doc_ids:
+                    if docID not in docID_final_scores:
+                        docID_final_scores[docID] = score
+                    else:
+                        docID_final_scores[docID] += score
+
+        # Sort docIDs by their final accumulated scores
+        global_sorted_docIDs = sorted(docID_final_scores.items(), key=lambda x: x[1], reverse=True)
+
+        return global_sorted_docIDs  # Return the sorted docIDs for pagination
 
     return []  # Return an empty list if no common docIDs are found
 
@@ -128,19 +146,39 @@ def add_article(data):
     url_mapper.add_entry(docID, url)
 
 
-# Return query response
+# Return query response with pagination
 @app.route('/query', methods=['POST'])
 def query():
     """Endpoint to handle search queries."""
     data = request.get_json()
     query_text = data.get('query', '')
+    page_number = data.get('page_number', 1)
 
     if not query_text:
         return jsonify({"error": "Query cannot be empty"}), 400
 
     # Process the query and get results
-    doc_details = handle_query(query_text)
-    if doc_details:
+    global global_sorted_docIDs
+    global previous_query
+    if not global_sorted_docIDs or query_text != previous_query:
+        # New query or if the query is different from the last one
+        global_sorted_docIDs = handle_query(query_text)
+        previous_query = query_text
+
+    if global_sorted_docIDs:
+        # Calculate the range of docIDs to return for the requested page
+        start_index = (page_number - 1) * 14
+        end_index = start_index + 14
+
+        # Get the details of the documents in the specified range
+        page_docIDs = global_sorted_docIDs[start_index:end_index]
+
+        doc_details = []
+        for docID, _ in page_docIDs:
+            details = url_mapper.get_details_by_docID(docID, 'files/url_mapper.bin')
+            if details:
+                doc_details.append(details)
+
         return jsonify({"results": doc_details})
     else:
         return jsonify({"error": "No results found"}), 404
