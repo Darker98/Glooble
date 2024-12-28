@@ -179,7 +179,7 @@ def query():
             if details:
                 doc_details.append(details)
 
-        return jsonify({"results": doc_details})
+        return jsonify({"results": doc_details, "total_results": len(global_sorted_docIDs)})
     else:
         return jsonify({"error": "No results found"}), 404
 
