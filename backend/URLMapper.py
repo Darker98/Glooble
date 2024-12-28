@@ -49,6 +49,8 @@ class URLMapper:
                     tag_length = int.from_bytes(file.read(1), byteorder='big')
                     tag = file.read(tag_length).decode('utf-8')
                     tags.append(tag)
+                if num_tags == 0:
+                    tags.append("None")
 
                 # Read authors
                 num_authors = int.from_bytes(file.read(1), byteorder='big')
@@ -57,6 +59,8 @@ class URLMapper:
                     author_length = int.from_bytes(file.read(1), byteorder='big')
                     author = file.read(author_length).decode('utf-8')
                     authors.append(author)
+                if num_authors == 0:
+                    authors.append("Unknown")
 
                 # Read text
                 text_length = int.from_bytes(file.read(2), byteorder='big')
