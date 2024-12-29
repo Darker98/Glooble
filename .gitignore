@@ -170,3 +170,11 @@ generation/files/medium_articles.csv
 # Visual studio
 /.vs
 .vs/*
+/generation/__pycache__
+generation/files/forward_index.bin
+generation/files/inverted_index.bin
+/generation/__pycache__
+generation/__pycache__/ForwardIndex.cpython-311.pyc
+generation/__pycache__/ForwardIndex.cpython-311.pyc
+backend/files/inverted_index.bin
+backend/files/forward_index.bin

@@ -1,5 +1,6 @@
 import struct
 
+
 class Lexicon:
     def __init__(self):
         self.word_to_id = {}  # Dictionary to store word -> unique ID mapping
