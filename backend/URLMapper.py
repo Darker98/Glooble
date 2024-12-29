@@ -1,3 +1,6 @@
+import os
+
+
 class URLMapper:
     def __init__(self):
         self.id_to_offset = {}  # Maps docID to offset
@@ -77,20 +80,52 @@ class URLMapper:
             print(f"Error fetching details for docID {docID}: {e}")
             return None
 
-    def add_entry(self, docID, url):
-        """Adds a new entry to the URL mapper file."""
-        self.id_to_url[docID] = url
+    def add_entry(self, docID, url, title, tags, authors, text):
+        """Adds a new entry to the URL mapper file and stores its offset."""
+        try:
+            with open('files/url_mapper.bin', 'ab+') as file:
+                # Determine the current offset (end of the file)
+                file.seek(0, os.SEEK_END)
+                offset = file.tell()
 
-        with open('files/url_mapper.bin', 'ab') as file:
-            # Encode URL in UTF-8
-            url_encoded = url.encode('utf-8')
-            url_length = len(url_encoded)
+                # Encode the URL, title, tags, authors, and text
+                url_encoded = url.encode('utf-8')
+                title_encoded = title.encode('utf-8')
+                tags_encoded = [tag.encode('utf-8') for tag in tags]
+                authors_encoded = [author.encode('utf-8') for author in authors]
+                text_encoded = text.encode('utf-8')
 
-            # Write 2 bytes for URL length
-            file.write(url_length.to_bytes(2, byteorder='big'))
+                # Write URL length and URL
+                file.write(len(url_encoded).to_bytes(2, byteorder='big'))
+                file.write(url_encoded)
 
-            # Write the URL bytes
-            file.write(url_encoded)
+                # Write title length and title
+                file.write(len(title_encoded).to_bytes(2, byteorder='big'))
+                file.write(title_encoded)
 
-            # Write 8 bytes for the docID
-            file.write(docID.to_bytes(8, byteorder='big'))
+                # Write tags
+                file.write(len(tags_encoded).to_bytes(1, byteorder='big'))
+                for tag in tags_encoded:
+                    file.write(len(tag).to_bytes(1, byteorder='big'))
+                    file.write(tag)
+
+                # Write authors
+                file.write(len(authors_encoded).to_bytes(1, byteorder='big'))
+                for author in authors_encoded:
+                    file.write(len(author).to_bytes(1, byteorder='big'))
+                    file.write(author)
+
+                # Write text length and text
+                file.write(len(text_encoded).to_bytes(2, byteorder='big'))
+                file.write(text_encoded)
+
+                # Update the offset mapping
+                self.id_to_offset[docID] = offset
+
+            # Update the offset file
+            with open('files/offsets.bin', 'ab') as offset_file:
+                offset_file.write(docID.to_bytes(8, byteorder='big'))
+                offset_file.write(offset.to_bytes(8, byteorder='big'))
+
+        except Exception as e:
+            print(f"Error adding entry for docID {docID}: {e}")

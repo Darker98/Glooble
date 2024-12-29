@@ -74,3 +74,67 @@ class BarrelReader:
         if wordID in self.offsets.keys():
             return self.offsets[wordID]
         return -1
+
+    def update_barrel_entry(self, wordID, new_doc_ID, word_data):
+        """
+        Update or append an entry for a wordID in the appropriate barrel and recalculate offsets.
+        """
+        barrel_index = wordID % self.num_barrels
+        barrel_filename = os.path.join(self.output_dir, f"barrel_{barrel_index}.bin")
+        offsets_file = os.path.join(self.output_dir, "offsets.bin")
+
+        # Load the entire barrel into memory
+        barrel_data = {}
+        with open(barrel_filename, 'rb') as file:
+            while True:
+                header = file.read(8)  # 4 bytes wordID, 4 bytes doc count
+                if not header:
+                    break
+                curr_wordID, doc_count = struct.unpack("<II", header)
+                entries = [
+                    struct.unpack("<QBH", file.read(11))
+                    for _ in range(doc_count)
+                ]
+                barrel_data[curr_wordID] = entries
+
+        # Modify or add the entry for the given wordID
+        if wordID in barrel_data:
+            # Update the existing wordID entry
+            existing_entries = barrel_data[wordID]
+            for i, (docID, _, _) in enumerate(existing_entries):
+                if docID == new_doc_ID:
+                    existing_entries[i] = word_data  # Update the document data
+                    break
+            else:
+                existing_entries.append(word_data)  # Add new document data
+        else:
+            # Add a new wordID entry
+            barrel_data[wordID] = [word_data]
+
+        # Recalculate offsets and write back the updated barrel
+        new_offsets = {}
+        with open(barrel_filename, 'wb') as file:
+            offset = 0
+            for curr_wordID, entries in sorted(barrel_data.items()):
+                # Write header: wordID and number of entries
+                header = struct.pack("<II", curr_wordID, len(entries))
+                file.write(header)
+                offset += len(header)
+
+                # Write document entries
+                for entry in entries:
+                    doc_entry = struct.pack("<QBH", *entry)
+                    file.write(doc_entry)
+                    offset += len(doc_entry)
+
+                # Update the offsets for the current wordID
+                new_offsets[curr_wordID] = offset - len(header) - len(entries) * 11
+
+        # Update offsets.bin with the new offsets
+        with open(offsets_file, 'wb') as file:
+            for curr_wordID, word_offset in new_offsets.items():
+                file.write(struct.pack("<II", curr_wordID, word_offset))
+
+        # Update the in-memory offsets dictionary
+        self.offsets = new_offsets
+

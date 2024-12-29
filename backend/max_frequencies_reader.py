@@ -1,4 +1,36 @@
+import os
 import struct
+
+
+def add_max_frequency_entry(docID, max_frequency, file_path='files/max_frequencies.bin'):
+    """
+    Adds a new max_freq entry for a given docID and updates the total document count.
+
+    :param docID: The document ID (int).
+    :param max_frequency: The maximum term frequency in the document (int).
+    :param file_path: Path to the max_frequencies file.
+    """
+    try:
+        if not os.path.exists(file_path):
+            # Create the file and initialize the total document count
+            with open(file_path, 'wb') as file:
+                file.write(struct.pack("<I", 0))  # Initial total_documents count
+
+        # Read current total_documents
+        with open(file_path, 'rb+') as file:
+            total_documents = struct.unpack("<I", file.read(4))[0]
+            total_documents += 1
+
+            # Move the cursor back to update the total_documents
+            file.seek(0)
+            file.write(struct.pack("<I", total_documents))
+
+            # Append the new docID and max_frequency at the end of the file
+            file.seek(0, os.SEEK_END)
+            file.write(struct.pack("<QH", docID, max_frequency))
+
+    except Exception as e:
+        print(f"Error adding max frequency entry: {e}")
 
 
 def max_frequency_reader(file_path):

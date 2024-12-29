@@ -8,7 +8,7 @@ from Lexicon import Lexicon
 from inverted_index import BarrelReader
 from URLMapper import URLMapper
 from hashlib import sha256
-from max_frequencies_reader import max_frequency_reader
+from max_frequencies_reader import max_frequency_reader, add_max_frequency_entry
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -108,42 +108,59 @@ def add_article(data):
 
     # Preprocess data
     tokens = preprocessing.tokenize_text(text)
-    tokens.extend(preprocessing.tokenize_text(title))
-    tokens.extend(preprocessing.tokenize_text(authors))
-    tokens.extend(preprocessing.tokenize_text(tags))
+    title_tokens = preprocessing.tokenize_text(title)
+    authors_tokens = preprocessing.tokenize_text(authors)
+    tags_tokens = preprocessing.tokenize_text(tags)
+
+    # Combine tokens for frequency calculation
+    all_tokens = tokens + title_tokens + authors_tokens + tags_tokens
 
     # Get docID
     docID = sha_256(url)
 
+    # Calculate term frequencies and context flags
+    term_frequency = {}
+    context_flags = {}
+
+    for token in all_tokens:
+        term_frequency[token] = term_frequency.get(token, 0) + 1
+        if token not in context_flags:
+            # Initialize context flags
+            context_flags[token] = 0
+        # Set flags based on token occurrence
+        if token in title_tokens:
+            context_flags[token] |= 1 << 0  # Bit 1: title
+        if token in tokens:
+            context_flags[token] |= 1 << 1  # Bit 2: text
+        if token in tags_tokens:
+            context_flags[token] |= 1 << 2  # Bit 3: tags
+        if token in authors_tokens:
+            context_flags[token] |= 1 << 3  # Bit 4: authors
+
+    # Get the maximum frequency
+    max_frequency = max(term_frequency.values())
+
     # Add tokens to lexicon and inverted index
-    for word in tokens:
+    for word, frequency in term_frequency.items():
         lexicon.add_word(word)
         wordID = lexicon.get_word_id(word)
 
-        offset = barrel_reader.get_wordID_offset(wordID)
+        # Retrieve the context flag for the current word
+        context_flag = context_flags[word]
 
-        # If wordID is new
-        if offset == -1:
-            barrel_num = wordID % num_barrels
-            max_offset = barrel_reader.get_max_offset(barrel_num)
+        barrel_reader.update_barrel_entry(wordID, docID, (context_flag, frequency))
 
-            # Make new entry in barrel
-            with open(f'barrels/inverted_index/barrel_{barrel_num}.bin', 'ab') as file:
-                data = struct.pack("<II", wordID, 1)  # I = unsigned int
-                docID_data = struct.pack(f"<Q", docID)  # Q = unsigned long long
-                file.write(data + docID_data)
+    # Make entry in URL mapper
+    url_mapper.add_entry(docID, url, title, tags, authors, text)
 
-            # Make new entry in offsets file
-            barrel_reader.offsets[wordID] = max_offset + 12
-            with open('barrels/inverted_index/offsets.bin', 'ab') as meta_file:
-                meta_file.write(struct.pack("<IQ", wordID, barrel_reader.get_wordID_offset(wordID)))
+    # Add entry in max frequency file
+    add_max_frequency_entry(docID, max_frequency)
 
-        # Update barrel and offsets
-        else:
-            barrel_reader.update_barrel_entry(wordID, docID)
-
-    # Make entry in url mapper
-    url_mapper.add_entry(docID, url)
+    # Update global variables
+    global num_documents
+    global max_frequencies
+    num_documents += 1
+    max_frequencies[docID] = max_frequency
 
 
 # Return query response with pagination
