@@ -4,7 +4,10 @@ import { SearchResults } from './components/SearchResults';
 import { Pagination } from './components/Pagination';
 import { NoResults } from './components/NoResults';
 import { SpellingSuggestion } from './components/SpellingSuggestion';
+import { UploadConfirmation } from './components/UploadConfirmation';
 import { Search, Sparkles } from 'lucide-react';
+import { validateArticleFile } from './utils/fileValidation';
+import { uploadArticle, searchArticles } from './utils/api';
 import type { SearchResult, SearchResponse } from './types/search';
 
 const ITEMS_PER_PAGE = 14;
@@ -17,36 +20,10 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentQuery, setCurrentQuery] = useState('');
   const [totalResults, setTotalResults] = useState(0);
-
-  const fetchResults = async (query: string, page: number, useOriginal = false) => {
-    try {
-      console.log('Fetching results:', { query, page, useOriginal });
-      
-      const response = await fetch('http://127.0.0.1:5000/query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          query: query.trim(),
-          use_original: useOriginal,
-          page_number: page,
-          per_page: ITEMS_PER_PAGE
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: SearchResponse = await response.json();
-      console.log('Response data:', data);
-      return data;
-    } catch (error) {
-      console.error('Search error:', error);
-      return null;
-    }
-  };
+  const [uploadStatus, setUploadStatus] = useState<{ show: boolean; success: boolean }>({
+    show: false,
+    success: false
+  });
 
   const handleSearch = async (query: string, useOriginal = false) => {
     if (!query.trim()) {
@@ -63,9 +40,15 @@ export default function App() {
     setCurrentQuery(query);
     setCurrentPage(1);
 
-    const data = await fetchResults(query, 1, useOriginal);
-    
-    if (data) {
+    try {
+      const response = await searchArticles(query.trim(), 1, ITEMS_PER_PAGE);
+      
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.statusText}`);
+      }
+
+      const data: SearchResponse = await response.json();
+      
       if (!useOriginal && data.corrections?.length) {
         setCorrections(data.corrections);
       } else {
@@ -74,27 +57,35 @@ export default function App() {
 
       setResults(data.results || []);
       setTotalResults(data.total_results || 0);
-    } else {
+    } catch (error) {
+      console.error('Search error:', error);
       setResults([]);
       setCorrections([]);
       setTotalResults(0);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   const handlePageChange = async (newPage: number) => {
     setIsLoading(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    const data = await fetchResults(currentQuery, newPage);
-    
-    if (data) {
+    try {
+      const response = await searchArticles(currentQuery.trim(), newPage, ITEMS_PER_PAGE);
+      
+      if (!response.ok) {
+        throw new Error(`Page fetch failed: ${response.statusText}`);
+      }
+
+      const data: SearchResponse = await response.json();
       setResults(data.results || []);
       setCurrentPage(newPage);
+    } catch (error) {
+      console.error('Pagination error:', error);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   const handleUpload = async (file: File) => {
@@ -106,14 +97,10 @@ export default function App() {
       console.log('Uploading article:', article);
       const success = await uploadArticle(article);
       
-      if (success) {
-        alert('Article uploaded successfully!');
-      } else {
-        throw new Error('Failed to upload article');
-      }
+      setUploadStatus({ show: true, success });
     } catch (error) {
       console.error('Upload error:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process article');
+      setUploadStatus({ show: true, success: false });
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +137,7 @@ export default function App() {
         </div>
 
         <div className="flex flex-col items-center space-y-8 max-w-5xl mx-auto">
-          <SearchBar onSearch={handleSearch} isLoading={isLoading} />
+          <SearchBar onSearch={handleSearch} onUpload={handleUpload} isLoading={isLoading} />
           
           {!isLoading && corrections.length > 0 && (
             <SpellingSuggestion
@@ -159,24 +146,29 @@ export default function App() {
             />
           )}
 
-          {!isLoading && hasSearched ? (
-            results.length > 0 ? (
-              <>
-                <SearchResults results={results} totalResults={totalResults} />
-                {totalResults > ITEMS_PER_PAGE && (
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={Math.ceil(totalResults / ITEMS_PER_PAGE)}
-                    onPageChange={handlePageChange}
-                  />
-                )}
-              </>
-            ) : (
-              <NoResults />
-            )
+          {!isLoading && hasSearched && results.length === 0 ? (
+            <NoResults />
+          ) : !isLoading && results.length > 0 ? (
+            <>
+              <SearchResults results={results} totalResults={totalResults} />
+              {totalResults > ITEMS_PER_PAGE && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(totalResults / ITEMS_PER_PAGE)}
+                  onPageChange={handlePageChange}
+                />
+              )}
+            </>
           ) : null}
         </div>
       </div>
+
+      {uploadStatus.show && (
+        <UploadConfirmation
+          success={uploadStatus.success}
+          onClose={() => setUploadStatus({ show: false, success: false })}
+        />
+      )}
     </div>
   );
 }
