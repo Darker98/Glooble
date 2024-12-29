@@ -34,7 +34,7 @@ previous_query = ""
 
 def sha_256(data):
     # Compute SHA-256 hash
-    hash_value = sha256(data).digest()
+    hash_value = sha256(data.encode('utf-8')).digest()
 
     # Extract the first 8 bytes and convert to an integer
     checksum = int.from_bytes(hash_value[:8], byteorder='big')  # Use 'little' if needed
@@ -156,7 +156,7 @@ def add_article(data):
         # Retrieve the context flag for the current word
         context_flag = context_flags[word]
 
-        barrel_reader.update_barrel_entry(wordID, docID, (context_flag, frequency))
+        barrel_reader.update_barrel_entry(wordID, docID, (docID, context_flag, frequency))
 
     # Make entry in URL mapper
     url_mapper.add_entry(docID, url, title, tags, authors, text)
@@ -213,12 +213,16 @@ def query():
         return jsonify({"error": "No results found"}), 404
 
 
-# Define an endpoint for adding articles
+# Define an endpoint for uploading articles
 @app.route('/upload', methods=['POST'])
 def upload():
-    data = request.get_json()
-
-    add_article(data)
+    try:
+        # Process the request
+        data = request.get_json()
+        add_article(data)  # Call your function
+        return jsonify({"message": "Upload successful"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # Run the Flask app
