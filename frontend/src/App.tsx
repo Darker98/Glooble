@@ -5,49 +5,23 @@ import { Pagination } from './components/Pagination';
 import { NoResults } from './components/NoResults';
 import { SpellingSuggestion } from './components/SpellingSuggestion';
 import { Search, Sparkles } from 'lucide-react';
-import type { SearchResult, SearchResponse, SearchState } from './types/search';
+import type { SearchResult, SearchResponse } from './types/search';
 
-const RESULTS_PER_PAGE = 14;
+const ITEMS_PER_PAGE = 14;
 
 export default function App() {
-  const [state, setState] = useState<SearchState>({
-    results: [],
-    isLoading: false,
-    error: null,
-    hasSearched: false,
-    currentQuery: '',
-    corrections: [],
-  });
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [corrections, setCorrections] = useState<[string, string][]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentQuery, setCurrentQuery] = useState('');
+  const [totalResults, setTotalResults] = useState(0);
 
-  const totalPages = Math.ceil(state.results.length / RESULTS_PER_PAGE);
-  const startIndex = (currentPage - 1) * RESULTS_PER_PAGE;
-  const paginatedResults = state.results.slice(startIndex, startIndex + RESULTS_PER_PAGE);
-
-  const handleSearch = async (query: string, useOriginal = false) => {
-    console.log('Search initiated:', { query, useOriginal });
-
-    if (!query.trim()) {
-      setState(prev => ({
-        ...prev,
-        results: [],
-        corrections: [],
-        hasSearched: false,
-        currentQuery: '',
-        error: null,
-      }));
-      return;
-    }
-
-    setState(prev => ({
-      ...prev,
-      isLoading: true,
-      hasSearched: true,
-      currentQuery: query,
-      error: null,
-    }));
-
+  const fetchResults = async (query: string, page: number, useOriginal = false) => {
     try {
+      console.log('Fetching results:', { query, page, useOriginal });
+      
       const response = await fetch('http://127.0.0.1:5000/query', {
         method: 'POST',
         headers: {
@@ -55,75 +29,99 @@ export default function App() {
         },
         body: JSON.stringify({ 
           query: query.trim(),
-          useOriginal 
+          useOriginal,
+          page,
+          per_page: ITEMS_PER_PAGE
         }),
       });
 
-      const data: SearchResponse = await response.json();
-      
-      if (!response.ok && response.status !== 404) {
+      if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      setState(prev => ({
-        ...prev,
-        results: data.results || [],
-        corrections: !useOriginal && data.corrections ? data.corrections : [],
-        isLoading: false,
-        error: null,
-        hasSearched: true,
-      }));
-      
-      setCurrentPage(1);
+      const data: SearchResponse = await response.json();
+      console.log('Response data:', data);
+      return data;
     } catch (error) {
       console.error('Search error:', error);
-      setState(prev => ({
-        ...prev,
-        results: [],
-        corrections: [],
-        error: null,
-        isLoading: false,
-        hasSearched: true,
-      }));
+      return null;
+    }
+  };
+
+  const handleSearch = async (query: string, useOriginal = false) => {
+    if (!query.trim()) {
+      setResults([]);
+      setCorrections([]);
+      setHasSearched(false);
+      setCurrentQuery('');
+      setTotalResults(0);
+      return;
+    }
+
+    setIsLoading(true);
+    setHasSearched(true);
+    setCurrentQuery(query);
+    setCurrentPage(1);
+
+    const data = await fetchResults(query, 1, useOriginal);
+    
+    if (data) {
+      if (!useOriginal && data.corrections?.length) {
+        setCorrections(data.corrections);
+      } else {
+        setCorrections([]);
+      }
+
+      setResults(data.results || []);
+      setTotalResults(data.total_results || 0);
+    } else {
+      setResults([]);
+      setCorrections([]);
+      setTotalResults(0);
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handlePageChange = async (newPage: number) => {
+    setIsLoading(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    const data = await fetchResults(currentQuery, newPage);
+    
+    if (data) {
+      setResults(data.results || []);
+      setCurrentPage(newPage);
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleUpload = async (file: File) => {
+    setIsLoading(true);
+    try {
+      console.log('Processing file:', file.name);
+      const article = await validateArticleFile(file);
+      
+      console.log('Uploading article:', article);
+      const success = await uploadArticle(article);
+      
+      if (success) {
+        alert('Article uploaded successfully!');
+      } else {
+        throw new Error('Failed to upload article');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert(error instanceof Error ? error.message : 'Failed to process article');
     } finally {
-      console.log('Search completed');
+      setIsLoading(false);
     }
   };
 
   const handleUseOriginal = () => {
-    if (state.currentQuery && state.corrections.length > 0) {
-      console.log('Using original query:', state.currentQuery);
-      handleSearch(state.currentQuery, true);
-    }
-  };
-
-  const handleUpload = async (file: File) => {
-    if (!file) return;
-    
-    setState(prev => ({
-      ...prev,
-      isLoading: true,
-      error: null,
-    }));
-    
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      console.log('Uploading file:', file.name);
-      // Add your file upload logic here
-      
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-      }));
-    } catch (error) {
-      console.error('Upload error:', error);
-      setState(prev => ({
-        ...prev,
-        error: 'Failed to upload file',
-        isLoading: false,
-      }));
+    if (currentQuery && corrections.length > 0) {
+      handleSearch(currentQuery, true);
     }
   };
 
@@ -131,8 +129,8 @@ export default function App() {
     <div className="min-h-screen bg-[#0A0118] text-white overflow-hidden">
       <div className="fixed inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-blue-900/20 to-black animate-gradient" />
-        <div className="absolute top-0 left-0 w-1/3 h-1/3 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '0s' }} />
-        <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-blue-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '-3s' }} />
+        <div className="absolute top-0 left-0 w-1/3 h-1/3 bg-purple-500/10 rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-blue-500/10 rounded-full blur-3xl animate-float" />
       </div>
       
       <div className="relative z-10 container mx-auto px-4 py-16">
@@ -152,41 +150,30 @@ export default function App() {
         </div>
 
         <div className="flex flex-col items-center space-y-8 max-w-5xl mx-auto">
-          <SearchBar 
-            onSearch={handleSearch} 
-            onUpload={handleUpload} 
-            isLoading={state.isLoading} 
-          />
+          <SearchBar onSearch={handleSearch} isLoading={isLoading} />
           
-          {state.error && (
-            <div className="text-red-400 bg-red-500/10 px-4 py-2 rounded-lg">
-              {state.error}
-            </div>
-          )}
-          
-          {!state.isLoading && state.corrections.length > 0 && (
+          {!isLoading && corrections.length > 0 && (
             <SpellingSuggestion
-              corrections={state.corrections}
+              corrections={corrections}
               onUseOriginal={handleUseOriginal}
             />
           )}
 
-          {!state.isLoading && state.hasSearched && state.results.length === 0 ? (
-            <NoResults />
-          ) : !state.isLoading && state.results.length > 0 ? (
-            <>
-              <SearchResults 
-                results={paginatedResults}
-                totalResults={state.results.length}
-              />
-              {totalPages > 1 && (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
-              )}
-            </>
+          {!isLoading && hasSearched ? (
+            results.length > 0 ? (
+              <>
+                <SearchResults results={results} totalResults={totalResults} />
+                {totalResults > ITEMS_PER_PAGE && (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(totalResults / ITEMS_PER_PAGE)}
+                    onPageChange={handlePageChange}
+                  />
+                )}
+              </>
+            ) : (
+              <NoResults />
+            )
           ) : null}
         </div>
       </div>

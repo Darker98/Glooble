@@ -5,32 +5,24 @@ import type { SearchResult } from '../types/search';
 
 interface SearchResultsProps {
   results: SearchResult[];
-  totalResults?: number;
+  totalResults: number;
 }
 
-export function SearchResults({ results, totalResults = results.length }: SearchResultsProps) {
-  if (!results?.length) {
-    return (
-      <div className="w-full max-w-4xl mt-3 text-center text-gray-400 text-sm">
-        No results found
-      </div>
-    );
-  }
-
+export function SearchResults({ results, totalResults }: SearchResultsProps) {
   return (
-    <div className="w-full max-w-4xl mt-3">
-      <div className="flex items-center space-x-2 mb-2">
+    <div className="w-full max-w-5xl mt-3">
+      <div className="flex items-center space-x-2 mb-3">
         <Sparkle 
-          size={12} 
+          size={14} 
           className="text-purple-400 animate-pulse-gentle" 
           aria-hidden="true"
         />
-        <p className="text-xs text-gray-400">
+        <p className="text-sm text-gray-400">
           Found{' '}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400 font-semibold">
             {totalResults}
-          </span>{' '}
-          cosmic discoveries
+          </span>
+          {' '}cosmic discoveries
         </p>
       </div>
 

@@ -4,18 +4,12 @@ export interface SearchResult {
   text: string;
   tags: string[];
   authors: string[];
-  score?: number;
-  timestamp?: string;
 }
 
 export interface SearchResponse {
   results: SearchResult[];
   corrections?: [string, string][];
-  totalResults?: number;
-  metadata?: {
-    queryTime?: number;
-    indexSize?: number;
-  };
+  total_results: number;
 }
 
 export interface SearchRequest {
