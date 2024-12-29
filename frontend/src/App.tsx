@@ -30,7 +30,7 @@ export default function App() {
         body: JSON.stringify({ 
           query: query.trim(),
           useOriginal,
-          page,
+          page_number: page,
           per_page: ITEMS_PER_PAGE
         }),
       });
