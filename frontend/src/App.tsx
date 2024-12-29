@@ -24,6 +24,35 @@ export default function App() {
     show: false,
     success: false
   });
+  const fetchResults = async (query: string, page: number, useOriginal = false) => {
+    try {
+      console.log('Fetching results:', { query, page, useOriginal });
+      
+      const response = await fetch('http://127.0.0.1:5000/query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          query: query.trim(),
+          use_original: useOriginal,
+          page_number: page,
+          per_page: ITEMS_PER_PAGE
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: SearchResponse = await response.json();
+      console.log('Response data:', data);
+      return data;
+    } catch (error) {
+      console.error('Search error:', error);
+      return null;
+    }
+  };
 
   const handleSearch = async (query: string, useOriginal = false) => {
     if (!query.trim()) {
@@ -40,14 +69,9 @@ export default function App() {
     setCurrentQuery(query);
     setCurrentPage(1);
 
-    try {
-      const response = await searchArticles(query.trim(), 1, ITEMS_PER_PAGE);
-      
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.statusText}`);
-      }
-
-      const data: SearchResponse = await response.json();
+    const data = await fetchResults(query, 1, useOriginal);
+    
+    if (data) {
       
       if (!useOriginal && data.corrections?.length) {
         setCorrections(data.corrections);
@@ -57,35 +81,26 @@ export default function App() {
 
       setResults(data.results || []);
       setTotalResults(data.total_results || 0);
-    } catch (error) {
-      console.error('Search error:', error);
+    } else { 
       setResults([]);
       setCorrections([]);
       setTotalResults(0);
-    } finally {
-      setIsLoading(false);
-    }
+    } 
+    setIsLoading(false);
   };
 
   const handlePageChange = async (newPage: number) => {
     setIsLoading(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    try {
-      const response = await searchArticles(currentQuery.trim(), newPage, ITEMS_PER_PAGE);
-      
-      if (!response.ok) {
-        throw new Error(`Page fetch failed: ${response.statusText}`);
-      }
-
-      const data: SearchResponse = await response.json();
+    const data = await fetchResults(currentQuery, newPage);
+    
+    if (data) {
       setResults(data.results || []);
       setCurrentPage(newPage);
-    } catch (error) {
-      console.error('Pagination error:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    } 
+
+    setIsLoading(false);
   };
 
   const handleUpload = async (file: File) => {
@@ -96,7 +111,7 @@ export default function App() {
       
       console.log('Uploading article:', article);
       const success = await uploadArticle(article);
-      
+
       setUploadStatus({ show: true, success });
     } catch (error) {
       console.error('Upload error:', error);
@@ -146,19 +161,21 @@ export default function App() {
             />
           )}
 
-          {!isLoading && hasSearched && results.length === 0 ? (
-            <NoResults />
-          ) : !isLoading && results.length > 0 ? (
-            <>
-              <SearchResults results={results} totalResults={totalResults} />
-              {totalResults > ITEMS_PER_PAGE && (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={Math.ceil(totalResults / ITEMS_PER_PAGE)}
-                  onPageChange={handlePageChange}
-                />
-              )}
-            </>
+          {!isLoading && hasSearched ? (
+            results.length > 0 ? (
+              <>
+                <SearchResults results={results} totalResults={totalResults} />
+                {totalResults > ITEMS_PER_PAGE && (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(totalResults / ITEMS_PER_PAGE)}
+                    onPageChange={handlePageChange}
+                  />
+                )}
+              </>
+            ) : (
+              <NoResults />
+            )
           ) : null}
         </div>
       </div>

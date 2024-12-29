@@ -130,11 +130,11 @@ class BarrelReader:
                 # Update the offsets for the current wordID
                 new_offsets[curr_wordID] = offset - len(header) - len(entries) * 11
 
-        # Update offsets.bin with the new offsets
-        with open(offsets_file, 'wb') as file:
-            for curr_wordID, word_offset in new_offsets.items():
-                file.write(struct.pack("<II", curr_wordID, word_offset))
+        # Merge new offsets with the in-memory offsets
+        self.offsets.update(new_offsets)
 
-        # Update the in-memory offsets dictionary
-        self.offsets = new_offsets
+        # Write the updated offsets to the offsets.bin file
+        with open(offsets_file, 'wb') as file:
+            for curr_wordID, word_offset in sorted(self.offsets.items()):
+                file.write(struct.pack("<II", curr_wordID, word_offset))
 

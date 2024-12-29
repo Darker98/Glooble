@@ -49,15 +49,14 @@ def process_word(word, result):
 
     docID_scores = {}  # Dictionary to store cumulative scores for each docID
 
-    if docIDs_and_scores is not None:
-        for docID, score in docIDs_and_scores:
-            if docID is not None:
-                if docID not in docID_scores:
-                    docID_scores[docID] = score
-                else:
-                    docID_scores[docID] += score  # Add the score if docID is repeated
+    for docID, score in docIDs_and_scores:
+        if docID is not None:
+            if docID not in docID_scores:
+                docID_scores[docID] = score
+            else:
+                docID_scores[docID] += score  # Add the score if docID is repeated
 
-        result.append(docID_scores)  # Append the dictionary of docID => total_score
+    result.append(docID_scores)  # Append the dictionary of docID => total_score
 
 
 # Fetch details of each unique docID
@@ -164,6 +163,9 @@ def add_article(data):
     # Add entry in max frequency file
     add_max_frequency_entry(docID, max_frequency)
 
+    # Update lexicon
+    lexicon.write_to_file('files/lexicon.bin')
+
     # Update global variables
     global num_documents
     global max_frequencies
@@ -220,7 +222,7 @@ def upload():
         # Process the request
         data = request.get_json()
         add_article(data)  # Call your function
-        return jsonify({"message": "Upload successful"}), 200
+        return jsonify({"success": True}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
