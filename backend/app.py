@@ -9,6 +9,7 @@ from inverted_index import BarrelReader
 from URLMapper import URLMapper
 from hashlib import sha256
 from max_frequencies_reader import max_frequency_reader, add_max_frequency_entry
+from correction import correct_query
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -48,20 +49,27 @@ def process_word(word, result):
 
     docID_scores = {}  # Dictionary to store cumulative scores for each docID
 
-    for docID, score in docIDs_and_scores:
-        if docID is not None:
-            if docID not in docID_scores:
-                docID_scores[docID] = score
-            else:
-                docID_scores[docID] += score  # Add the score if docID is repeated
+    if docIDs_and_scores is not None:
+        for docID, score in docIDs_and_scores:
+            if docID is not None:
+                if docID not in docID_scores:
+                    docID_scores[docID] = score
+                else:
+                    docID_scores[docID] += score  # Add the score if docID is repeated
 
-    result.append(docID_scores)  # Append the dictionary of docID => total_score
+        result.append(docID_scores)  # Append the dictionary of docID => total_score
 
 
 # Fetch details of each unique docID
-def handle_query(query):
+def handle_query(query, use_original):
     """Handles the incoming query and retrieves common docIDs and their details."""
     global global_sorted_docIDs  # Access global variable
+    word_corrections = []
+
+    # Correct query
+    if not use_original:
+        query, word_corrections = correct_query(query)
+
     words = preprocessing.tokenize_text(query)
     threads = []
     result = []
@@ -93,9 +101,9 @@ def handle_query(query):
         # Sort docIDs by their final accumulated scores
         global_sorted_docIDs = sorted(docID_final_scores.items(), key=lambda x: x[1], reverse=True)
 
-        return global_sorted_docIDs  # Return the sorted docIDs for pagination
+        return global_sorted_docIDs, word_corrections  # Return the sorted docIDs for pagination
 
-    return []  # Return an empty list if no common docIDs are found
+    return [], []  # Return an empty list if no common docIDs are found
 
 
 def add_article(data):
@@ -170,6 +178,8 @@ def query():
     data = request.get_json()
     query_text = data.get('query', '')
     page_number = data.get('page_number', 1)
+    use_original = data.get('use_original', False)
+    word_corrections = []
 
     if not query_text:
         return jsonify({"error": "Query cannot be empty"}), 400
@@ -177,9 +187,9 @@ def query():
     # Process the query and get results
     global global_sorted_docIDs
     global previous_query
-    if not global_sorted_docIDs or query_text != previous_query:
+    if not global_sorted_docIDs or query_text != previous_query or use_original:
         # New query or if the query is different from the last one
-        global_sorted_docIDs = handle_query(query_text)
+        global_sorted_docIDs, word_corrections = handle_query(query_text, use_original)
         previous_query = query_text
 
     if global_sorted_docIDs:
@@ -196,7 +206,9 @@ def query():
             if details:
                 doc_details.append(details)
 
-        return jsonify({"results": doc_details, "total_results": len(global_sorted_docIDs)})
+        return jsonify({"results": doc_details,
+                        "total_results": len(global_sorted_docIDs),
+                        "corrections": word_corrections})
     else:
         return jsonify({"error": "No results found"}), 404
 
