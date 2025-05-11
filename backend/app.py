@@ -60,7 +60,7 @@ def process_word(word, result):
 
 
 # Fetch details of each unique docID
-def handle_query(query, use_original):
+def handle_query(query, use_original=False):
     """Handles the incoming query and retrieves common docIDs and their details."""
     global global_sorted_docIDs  # Access global variable
     word_corrections = []
@@ -177,6 +177,7 @@ def add_article(data):
 @app.route('/query', methods=['POST'])
 def query():
     """Endpoint to handle search queries."""
+    start = time.time()
     data = request.get_json()
     query_text = data.get('query', '')
     page_number = data.get('page_number', 1)
@@ -208,6 +209,7 @@ def query():
             if details:
                 doc_details.append(details)
 
+        print(time.time()-start)
         return jsonify({"results": doc_details,
                         "total_results": len(global_sorted_docIDs),
                         "corrections": word_corrections})
@@ -229,4 +231,4 @@ def upload():
 
 # Run the Flask app
 if __name__ == "__main__":
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)

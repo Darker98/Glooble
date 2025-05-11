@@ -1,8 +1,11 @@
 from textblob import TextBlob
 import re
+import time
 
 def correct_query(query):
     """Handles the incoming query, performs spell check, and retrieves common docIDs and their details."""
+    start = time.time()
+
     # Split the query into words by non-alphanumeric characters (punctuation, spaces)
     words = re.findall(r'\b\w+\b', query)  # This will match words consisting of letters or digits
 
@@ -24,4 +27,5 @@ def correct_query(query):
         if word != corrected_word:
             word_corrections.append((word, corrected_word))
 
+    print(time.time() - start)
     return corrected_query, word_corrections

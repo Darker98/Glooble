@@ -2,7 +2,7 @@ import type { SearchResult } from '../types/search';
 
 export const uploadArticle = async (article: SearchResult): Promise<boolean> => {
   try {
-    const response = await fetch('http://127.0.0.1:5000/upload', {
+    const response = await fetch('/upload', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -23,7 +23,7 @@ export const uploadArticle = async (article: SearchResult): Promise<boolean> => 
 };
 
 export const searchArticles = async (query: string, page: number, perPage: number): Promise<Response> => {
-  return fetch('http://127.0.0.1:5000/query', {
+  return fetch('/query', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
